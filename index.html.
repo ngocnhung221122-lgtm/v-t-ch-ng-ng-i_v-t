@@ -1,0 +1,326 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RUN & JUMP - Vượt Chướng Ngại Vật</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #eaf2ff;
+  text-align: center;
+  color: #263653;
+}
+
+.container {
+  max-width: 750px;
+  margin: 35px auto;
+  padding: 20px;
+}
+
+h1 {
+  color: #3267c8;
+  font-size: 32px;
+}
+
+p {
+  color: #63718b;
+}
+
+.game-box {
+  position: relative;
+  background: white;
+  padding: 12px;
+  border-radius: 18px;
+  box-shadow: 0 5px 20px #00000015;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  background: #dff1ff;
+}
+
+.score {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 15px;
+}
+
+button {
+  border: none;
+  background: #3978e8;
+  color: white;
+  padding: 13px 28px;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+  margin: 6px;
+}
+
+button:hover {
+  background: #245fc6;
+}
+
+#jumpBtn {
+  background: #19a879;
+}
+
+.instructions {
+  margin-top: 18px;
+  line-height: 1.8;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <h1>🏃 RUN & JUMP</h1>
+  <p>Vượt chướng ngại vật và đạt điểm cao nhất!</p>
+
+  <div class="game-box">
+    <div class="score">
+      Điểm: <span id="score">0</span>
+      &nbsp; | &nbsp;
+      Kỷ lục: <span id="best">0</span>
+    </div>
+
+    <canvas id="game" width="700" height="300"></canvas>
+
+    <div>
+      <button id="startBtn">BẮT ĐẦU</button>
+      <button id="jumpBtn">NHẢY ⬆</button>
+    </div>
+  </div>
+
+  <div class="instructions">
+    <b>📌 HƯỚNG DẪN CHƠI</b><br>
+    💻 Máy tính: Nhấn phím SPACE để nhảy.<br>
+    📱 Điện thoại: Chạm nút NHẢY để vượt vật cản.<br>
+    ⭐ Tránh chướng ngại vật để ghi thật nhiều điểm!
+  </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const scoreText = document.getElementById("score");
+const bestText = document.getElementById("best");
+const startBtn = document.getElementById("startBtn");
+const jumpBtn = document.getElementById("jumpBtn");
+
+let player;
+let obstacles;
+let score = 0;
+let best = Number(localStorage.getItem("runBest")) || 0;
+let speed;
+let playing = false;
+let gameOver = false;
+let animation;
+
+bestText.textContent = best;
+
+function resetGame() {
+  player = {
+    x: 75,
+    y: 215,
+    width: 35,
+    height: 45,
+    velocity: 0,
+    jumping: false
+  };
+
+  obstacles = [];
+  score = 0;
+  speed = 5;
+  gameOver = false;
+  playing = true;
+
+  scoreText.textContent = score;
+  startBtn.textContent = "CHƠI LẠI";
+
+  if (animation) cancelAnimationFrame(animation);
+  gameLoop();
+}
+
+function jump() {
+  if (!playing || gameOver) return;
+
+  if (!player.jumping) {
+    player.velocity = -12;
+    player.jumping = true;
+  }
+}
+
+function drawPlayer() {
+  ctx.fillStyle = "#3978e8";
+  ctx.fillRect(
+    player.x,
+    player.y,
+    player.width,
+    player.height
+  );
+
+  // Mắt nhân vật
+  ctx.fillStyle = "white";
+  ctx.fillRect(player.x + 23, player.y + 9, 6, 6);
+
+  // Chân
+  ctx.fillStyle = "#244d9c";
+  ctx.fillRect(player.x + 3, player.y + 39, 10, 8);
+  ctx.fillRect(player.x + 23, player.y + 39, 10, 8);
+}
+
+function drawObstacle(obstacle) {
+  ctx.fillStyle = "#f07845";
+  ctx.fillRect(
+    obstacle.x,
+    obstacle.y,
+    obstacle.width,
+    obstacle.height
+  );
+}
+
+function createObstacle() {
+  const last = obstacles[obstacles.length - 1];
+
+  if (!last || last.x < 390) {
+    obstacles.push({
+      x: 700,
+      y: 235,
+      width: 25,
+      height: 25
+    });
+  }
+}
+
+function collision(a, b) {
+  return (
+    a.x + 5 < b.x + b.width &&
+    a.x + a.width - 5 > b.x &&
+    a.y + 5 < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
+function drawBackground() {
+  ctx.clearRect(0, 0, 700, 300);
+
+  // Mặt trời
+  ctx.fillStyle = "#ffd45c";
+  ctx.beginPath();
+  ctx.arc(610, 55, 25, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mây
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(160, 65, 20, 0, Math.PI * 2);
+  ctx.arc(185, 55, 25, 0, Math.PI * 2);
+  ctx.arc(210, 65, 20, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mặt đất
+  ctx.fillStyle = "#8acb8a";
+  ctx.fillRect(0, 260, 700, 40);
+
+  ctx.fillStyle = "#5a9e5a";
+  ctx.fillRect(0, 260, 700, 5);
+}
+
+function endGame() {
+  playing = false;
+  gameOver = true;
+
+  if (score > best) {
+    best = score;
+    localStorage.setItem("runBest", best);
+    bestText.textContent = best;
+  }
+
+  ctx.fillStyle = "#263653";
+  ctx.textAlign = "center";
+  ctx.font = "bold 35px Arial";
+  ctx.fillText("GAME OVER!", 350, 125);
+
+  ctx.font = "20px Arial";
+  ctx.fillText("Điểm của bạn: " + score, 350, 165);
+  ctx.textAlign = "left";
+}
+
+function gameLoop() {
+  if (!playing) return;
+
+  drawBackground();
+
+  // Di chuyển nhân vật
+  player.y += player.velocity;
+  player.velocity += 0.6;
+
+  if (player.y >= 215) {
+    player.y = 215;
+    player.velocity = 0;
+    player.jumping = false;
+  }
+
+  drawPlayer();
+
+  // Tạo vật cản
+  createObstacle();
+
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const obstacle = obstacles[i];
+
+    obstacle.x -= speed;
+    drawObstacle(obstacle);
+
+    if (collision(player, obstacle)) {
+      endGame();
+      return;
+    }
+
+    if (obstacle.x + obstacle.width < 0) {
+      obstacles.splice(i, 1);
+      score++;
+      scoreText.textContent = score;
+
+      speed = Math.min(5 + score * 0.15, 11);
+    }
+  }
+
+  animation = requestAnimationFrame(gameLoop);
+}
+
+startBtn.addEventListener("click", resetGame);
+jumpBtn.addEventListener("click", jump);
+
+document.addEventListener("keydown", function(event) {
+  if (event.code === "Space" || event.code === "ArrowUp") {
+    event.preventDefault();
+    jump();
+  }
+});
+
+// Màn hình chờ
+drawBackground();
+ctx.fillStyle = "#263653";
+ctx.textAlign = "center";
+ctx.font = "bold 28px Arial";
+ctx.fillText("NHẤN BẮT ĐẦU ĐỂ CHƠI!", 350, 150);
+ctx.textAlign = "left";
+
+</script>
+</body>
+</html>
